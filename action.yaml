@@ -1,4 +1,4 @@
-name: 'Build Android App'
+name: 'KMP Build Android App'
 description: 'Build the Android application in Debug mode'
 author: 'Mifos Initiative'
 branding:
