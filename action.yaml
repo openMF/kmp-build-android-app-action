@@ -9,11 +9,26 @@ inputs:
   android_package_name:
     description: 'Name of the Android project module'
     required: true
-
   build_type:
     description: 'Type of build to perform'
     required: true
     default: 'Debug'
+  key_store:
+    description: 'Base64 encoded keystore file'
+    required: false
+  google_services:
+    description: 'Base64 encoded google-services.json file'
+    required: false
+  key_store_password:
+    description: 'Password for the keystore file'
+    required: false
+  key_store_alias:
+    description: 'Alias for the keystore file'
+    required: false
+  key_store_alias_password:
+    description: 'Password for the keystore alias'
+    required: false
+
 
 outputs:
   demo_apk:
@@ -49,9 +64,54 @@ runs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: ${{ runner.os }}-gradle-
 
-    - name: Build Android App
+    # Generate version number
+    - name: Generate Release Number
+      id: rel_number
       shell: bash
-      run: ./gradlew :${{ inputs.android_package_name }}:assemble${{ inputs.build_type }}
+      run: |
+        ./gradlew versionFile
+        COMMITS=`git rev-list --count HEAD`
+        TAGS=`git tag | grep -v beta | wc -l`
+        VC=$(((COMMITS+TAGS) << 1))
+        echo "version-code=$VC" >> $GITHUB_OUTPUT
+        VERSION=`cat version.txt`
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Inflate Secrets
+      if: ${{ inputs.build_type == 'Release' }}
+      shell: bash
+      env:
+        KEYSTORE: ${{ inputs.key_store }}
+        GOOGLE_SERVICES: ${{ inputs.google_services }}
+      run: |
+        # Mock debug google-services.json
+        cp .github/mock-google-services.json ${{ inputs.android_package_name }}/google-services.json
+
+        # Inflate keystore
+        echo $KEYSTORE | base64 --decode > ${{ inputs.android_package_name }}/release_keystore.keystore
+
+        # Inflate google-services.json
+        echo $GOOGLE_SERVICES  | base64 --decode > ${{ inputs.android_package_name }}/google-services.json
+    
+
+    - name: Build Debug Android App
+      if: ${{ inputs.build_type == 'Debug' }}
+      shell: bash
+      env:
+        VERSION_CODE: ${{ steps.rel_number.outputs.version-code }}
+        VERSION: ${{ steps.rel_number.outputs.version }}
+      run: ./gradlew :${{ inputs.android_package_name }}:assembleDebug
+
+    - name: Build Release Android App
+      if: ${{ inputs.build_type == 'Release' }}
+      shell: bash
+      env:
+        KEYSTORE_PASSWORD: ${{ inputs.key_store_password }}
+        KEYSTORE_ALIAS: ${{ inputs.key_store_alias }}
+        KEYSTORE_ALIAS_PASSWORD: ${{ inputs.key_store_alias_password }}
+        VERSION_CODE: ${{ steps.rel_number.outputs.version-code }}
+        VERSION: ${{ steps.rel_number.outputs.version }}
+      run: ./gradlew :${{ inputs.android_package_name }}:assembleRelease
 
     - name: Collect APK Paths
       id: collect-apks
