@@ -1,5 +1,5 @@
 name: 'KMP Build Android App'
-description: 'Build the Android application in Debug mode'
+description: 'Build the Android application using Gradle'
 author: 'Mifos Initiative'
 branding:
   icon: 'play'
@@ -9,6 +9,22 @@ inputs:
   android_package_name:
     description: 'Name of the Android project module'
     required: true
+
+  build_type:
+    description: 'Type of build to perform'
+    required: true
+    default: 'Debug'
+
+outputs:
+  demo_apk:
+    description: 'Path to Demo APK'
+    value: ${{ steps.collect-apks.outputs.demo_apk }}
+  prod_apk:
+    description: 'Path to Prod APK'
+    value: ${{ steps.collect-apks.outputs.prod_apk }}
+  artifact-name:
+    description: 'Name of the artifact'
+    value: ${{ steps.collect-apks.outputs.artifact-name }}
 
 runs:
   using: composite
@@ -35,10 +51,31 @@ runs:
 
     - name: Build Android App
       shell: bash
-      run: ./gradlew :${{ inputs.android_package_name }}:assembleDebug
+      run: ./gradlew :${{ inputs.android_package_name }}:assemble${{ inputs.build_type }}
+
+    - name: Collect APK Paths
+      id: collect-apks
+      shell: bash
+      run: |
+        # Find Demo APK
+        demo_apk=$(find . -path "**/build/outputs/apk/**/demo/**/*${{ inputs.build_type }}*.apk" -print -quit)
+
+        # Find Prod APK
+        prod_apk=$(find . -path "**/build/outputs/apk/**/prod/**/*${{ inputs.build_type }}*.apk" -print -quit)
+
+        # Output APK paths
+        echo "demo_apk=${demo_apk}" >> $GITHUB_OUTPUT
+        echo "prod_apk=${prod_apk}" >> $GITHUB_OUTPUT
+        echo "artifact-name=android-app" >> $GITHUB_OUTPUT
+
+        # Print for logging
+        echo "Demo APK: ${demo_apk}"
+        echo "Prod APK: ${prod_apk}"
 
     - name: Upload APK as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: APK
-        path: '**/build/outputs/apk/**/*.apk'
+        name: ${{ steps.collect-apks.outputs.artifact-name }}
+        path: |
+          ${{ steps.collect-apks.outputs.demo_apk }}
+          ${{ steps.collect-apks.outputs.prod_apk }}
