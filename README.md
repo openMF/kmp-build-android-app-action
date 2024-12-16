@@ -96,15 +96,6 @@ flowchart TD
 - `key_store_alias_password`
 
 ## Outputs
-
-### `demo_apk`
-- **Description**: Path to Demo flavor APK
-- **Type**: `string`
-
-### `prod_apk`
-- **Description**: Path to Prod flavor APK
-- **Type**: `string`
-
 ### `artifact-name`
 - **Description**: Generated artifact name
 - **Type**: `string`
