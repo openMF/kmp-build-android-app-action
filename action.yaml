@@ -29,17 +29,10 @@ inputs:
     description: 'Password for the keystore alias'
     required: false
 
-
 outputs:
-  demo_apk:
-    description: 'Path to Demo APK'
-    value: ${{ steps.collect-apks.outputs.demo_apk }}
-  prod_apk:
-    description: 'Path to Prod APK'
-    value: ${{ steps.collect-apks.outputs.prod_apk }}
   artifact-name:
     description: 'Name of the artifact'
-    value: ${{ steps.collect-apks.outputs.artifact-name }}
+    value: 'android-app'
 
 runs:
   using: composite
@@ -92,7 +85,7 @@ runs:
 
         # Inflate google-services.json
         echo $GOOGLE_SERVICES  | base64 --decode > ${{ inputs.android_package_name }}/google-services.json
-    
+
 
     - name: Build Debug Android App
       if: ${{ inputs.build_type == 'Debug' }}
@@ -113,29 +106,10 @@ runs:
         VERSION: ${{ steps.rel_number.outputs.version }}
       run: ./gradlew :${{ inputs.android_package_name }}:assembleRelease
 
-    - name: Collect APK Paths
-      id: collect-apks
-      shell: bash
-      run: |
-        # Find Demo APK
-        demo_apk=$(find . -path "**/build/outputs/apk/**/demo/**/*${{ inputs.build_type }}*.apk" -print -quit)
-
-        # Find Prod APK
-        prod_apk=$(find . -path "**/build/outputs/apk/**/prod/**/*${{ inputs.build_type }}*.apk" -print -quit)
-
-        # Output APK paths
-        echo "demo_apk=${demo_apk}" >> $GITHUB_OUTPUT
-        echo "prod_apk=${prod_apk}" >> $GITHUB_OUTPUT
-        echo "artifact-name=android-app" >> $GITHUB_OUTPUT
-
-        # Print for logging
-        echo "Demo APK: ${demo_apk}"
-        echo "Prod APK: ${prod_apk}"
-
     - name: Upload APK as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ steps.collect-apks.outputs.artifact-name }}
+        name: android-app
         path: |
-          ${{ steps.collect-apks.outputs.demo_apk }}
-          ${{ steps.collect-apks.outputs.prod_apk }}
+          **/build/outputs/apk/demo/**/*.apk
+          **/build/outputs/apk/prod/**/*.apk
