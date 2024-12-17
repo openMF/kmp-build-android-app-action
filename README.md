@@ -86,7 +86,7 @@ flowchart TD
 - **Type**: `string`
 
 ### `google_services` (Optional)
-- **Description**: Base64 encoded google-services.json file
+- **Description**: google-services.json file
 - **Required**: `false`
 - **Type**: `string`
 

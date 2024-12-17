@@ -77,15 +77,11 @@ runs:
         KEYSTORE: ${{ inputs.key_store }}
         GOOGLE_SERVICES: ${{ inputs.google_services }}
       run: |
-        # Mock debug google-services.json
-        cp .github/mock-google-services.json ${{ inputs.android_package_name }}/google-services.json
-
         # Inflate keystore
         echo $KEYSTORE | base64 --decode > ${{ inputs.android_package_name }}/release_keystore.keystore
 
         # Inflate google-services.json
-        echo $GOOGLE_SERVICES  | base64 --decode > ${{ inputs.android_package_name }}/google-services.json
-
+        echo $GOOGLE_SERVICES | base64 --decode > ${{ inputs.android_package_name }}/google-services.json
 
     - name: Build Debug Android App
       if: ${{ inputs.build_type == 'Debug' }}
