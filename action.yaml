@@ -57,18 +57,58 @@ runs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: ${{ runner.os }}-gradle-
 
-    # Generate version number
+    # Generate Release Number
     - name: Generate Release Number
+      if: ${{ inputs.build_type == 'Release' }}
       id: rel_number
       shell: bash
       run: |
+        # Try to generate version file using Gradle task
+        set +e  # Disable exit on error to handle task non-existence
         ./gradlew versionFile
-        COMMITS=`git rev-list --count HEAD`
-        TAGS=`git tag | grep -v beta | wc -l`
-        VC=$(((COMMITS+TAGS) << 1))
-        echo "version-code=$VC" >> $GITHUB_OUTPUT
-        VERSION=`cat version.txt`
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        VERSIONFILE_EXIT_CODE=$?
+        set -e  # Re-enable exit on error
+
+        # Check if version file exists after attempting to generate it
+        if [ -f "version.txt" ]; then
+          echo "Using version from versionFile"
+          VERSION=$(cat version.txt)
+
+          # Count commits to generate version code
+          VERSION_CODE=$(($(git rev-list --count HEAD) * 10))
+
+          echo "Version from file: ${VERSION}"
+          echo "Version Code: ${VERSION_CODE}"
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version-code=${VERSION_CODE}" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Fallback to Git-based version generation
+        # Get the latest tag or use 1.0.0 as default
+        LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+
+        # Remove 'v' prefix if present
+        LATEST_TAG=${LATEST_TAG#v}
+
+        # Count commits since the last tag
+        COMMITS_SINCE_TAG=$(git rev-list ${LATEST_TAG}..HEAD --count)
+
+        # Extract major, minor, patch from the latest tag
+        IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST_TAG}"
+
+        # Increment patch version and add commits as build number
+        NEW_VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+        # Calculate version code (can be adjusted based on your versioning needs)
+        VERSION_CODE=$(($(git rev-list --count HEAD) * 10))
+
+        echo "Version: ${NEW_VERSION}"
+        echo "Version Code: ${VERSION_CODE}"
+
+        echo "version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+        echo "version-code=${VERSION_CODE}" >> $GITHUB_OUTPUT
 
     - name: Inflate Secrets
       if: ${{ inputs.build_type == 'Release' }}
@@ -86,9 +126,6 @@ runs:
     - name: Build Debug Android App
       if: ${{ inputs.build_type == 'Debug' }}
       shell: bash
-      env:
-        VERSION_CODE: ${{ steps.rel_number.outputs.version-code }}
-        VERSION: ${{ steps.rel_number.outputs.version }}
       run: ./gradlew :${{ inputs.android_package_name }}:assembleDebug
 
     - name: Build Release Android App
@@ -107,5 +144,5 @@ runs:
       with:
         name: android-app
         path: |
-          **/build/outputs/apk/demo/**/*.apk
-          **/build/outputs/apk/prod/**/*.apk
+          # Dynamically find APK files across all build variants
+          **/build/outputs/apk/**/*.apk
