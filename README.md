@@ -2,7 +2,8 @@
 
 ## Overview
 
-A comprehensive GitHub Action for building Android applications with support for multiple flavors, build types, and secure release configurations.
+A comprehensive GitHub Action for building Android applications with support for multiple flavors,
+build types, and secure release configurations.
 
 ## Features
 
@@ -15,6 +16,7 @@ A comprehensive GitHub Action for building Android applications with support for
 ## Usage Examples
 
 ### Debug Build
+
 ```yaml
 - name: Checkout Repository
   uses: actions/checkout@v4
@@ -28,6 +30,7 @@ A comprehensive GitHub Action for building Android applications with support for
 ```
 
 ### Release Build
+
 ```yaml
 - name: Build Android Release
   uses: openMF/kmp-build-android-app-action@v1.0.0
@@ -40,7 +43,7 @@ A comprehensive GitHub Action for building Android applications with support for
     key_store_password: ${{ secrets.KEYSTORE_PASSWORD }}
     key_store_alias: ${{ secrets.KEY_ALIAS }}
     key_store_alias_password: ${{ secrets.KEY_ALIAS_PASSWORD }}
-    
+
 - name: Display APK Paths
   run: |
     echo "Demo APK: ${{ steps.build-android.outputs.demo_apk }}"
@@ -48,6 +51,7 @@ A comprehensive GitHub Action for building Android applications with support for
 ```
 
 ## Workflow Diagram
+
 ```mermaid
 flowchart TD
     A[Start Build Process] --> B[Set up Java 17]
@@ -64,15 +68,49 @@ flowchart TD
     K --> L[End Build Process]
 ```
 
+## Android Project Configuration
+Release Build Environment Variables
+To use release build environment variables in your Android project, update your build.gradle files:
+
+App-level `build.gradle`
+
+```kotlin
+android {
+    namespace = "org.mifospay"
+
+    defaultConfig {
+        applicationId = "org.mifospay"
+        versionName = System.getenv("VERSION") ?: project.dynamicVersion
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
+        vectorDrawables.useSupportLibrary = true
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("KEYSTORE_PATH") ?: "release_keystore.keystore")
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "DefaultPassword"
+            keyAlias = System.getenv("KEYSTORE_ALIAS") ?: "default-alias"
+            keyPassword = System.getenv("KEYSTORE_ALIAS_PASSWORD") ?: "DefaultAlias"
+            enableV1Signing = true
+            enableV2Signing = true
+        }
+    }
+}
+```
+
+
 ## Inputs
 
 ### `android_package_name`
+
 - **Description**: Name of the Android project module
 - **Required**: `true`
 - **Type**: `string`
 - **Example**: `'app'`
 
 ### `build_type`
+
 - **Description**: Type of build to perform
 - **Required**: `true`
 - **Default**: `'Debug'`
@@ -81,30 +119,35 @@ flowchart TD
     - `'Release'`
 
 ### `key_store` (Optional for Release)
+
 - **Description**: Base64 encoded keystore file
 - **Required**: `false` (Required for Release builds)
 - **Type**: `string`
 
 ### `google_services` (Optional)
+
 - **Description**: google-services.json file
 - **Required**: `false`
 - **Type**: `string`
 
 ### Additional Security Inputs
+
 - `key_store_password`
 - `key_store_alias`
 - `key_store_alias_password`
 
 ## Outputs
+
 ### `artifact-name`
+
 - **Description**: Generated artifact name
 - **Type**: `string`
 - **Default**: `'android-app'`
 
-
 ## Release Configuration
 
 For release builds, you must provide:
+
 - Base64 encoded keystore
 - Keystore password
 - Keystore alias
@@ -112,12 +155,19 @@ For release builds, you must provide:
 
 ## Version Generation
 
-The action automatically:
-- Generates a version code based on:
-    - Total git commits
-    - Number of tags
-- Creates a `version.txt` file
-- Sets `VERSION_CODE` and `VERSION` environment variables
+1. Gradle versionFile Task (Preferred)
+
+- If version.txt can be generated via Gradle task
+- Version read from version.txt
+- Version code calculated based on total commit count
+
+2. Git-based Fallback
+
+- Uses latest Git tag
+- Starts from 1.0.0 if no tags exist
+- Increments patch version
+- Generates version code based on commit count
+
 
 ## Artifact Handling
 
